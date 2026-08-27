@@ -1,5 +1,8 @@
 package co.bskim.jira.fieldtemplate.web;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import java.io.BufferedReader;
@@ -22,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 final class NativeSidebarFetcher {
 
+    private static final Logger LOG = LoggerFactory.getLogger(NativeSidebarFetcher.class);
     private static final long CACHE_TTL_MS = 10 * 60 * 1000;
     private static final Map<String, CachedSidebar> CACHE = new ConcurrentHashMap<>();
 
@@ -42,13 +46,21 @@ final class NativeSidebarFetcher {
 
     private static String fetchFresh(HttpServletRequest req, String projectKey) {
         try {
-            String url = "http://localhost:" + req.getServerPort() + req.getContextPath()
+            // req.getServerPort()는 Host 헤더 기준(리버스 프록시 뒤에서는 사용자가 접속한 외부 포트,
+            // 예: 443/80)이라 프록시 뒤에 있는 실 서버에서는 Jira(Tomcat)가 실제로 듣는 내부 포트와
+            // 다르다 — 그 값으로 루프백 요청을 보내면 연결 자체가 실패해서 매번 fetch가 조용히 실패,
+            // 폴백 사이드바로 넘어가는 문제가 있었다(실 서버에서 사용자가 실기로 발견: 좌패널이 우리가
+            // 손으로 근사한 백업 마크업으로 계속 나옴). req.getLocalPort()는 이 요청을 실제로 받은
+            // 서버 소켓 포트라 프록시 유무와 무관하게 항상 맞다.
+            String url = "http://localhost:" + req.getLocalPort() + req.getContextPath()
                     + "/plugins/servlet/project-config/" + projectKey + "/summary";
             HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
             conn.setRequestProperty("Cookie", cookieHeader(req));
             conn.setConnectTimeout(3000);
             conn.setReadTimeout(5000);
             if (conn.getResponseCode() != 200) {
+                LOG.warn("NativeSidebarFetcher: fetch of " + url + " returned HTTP " + conn.getResponseCode()
+                        + " — falling back to approximated sidebar for project " + projectKey);
                 return null;
             }
             String body = readBody(conn);
@@ -76,6 +88,11 @@ final class NativeSidebarFetcher {
                     "aui-sidebar projects-sidebar");
             return html;
         } catch (Exception e) {
+            // 이전엔 여기서 예외를 완전히 삼켜서(원인 불명 상태로 폴백만 조용히 켜짐), 실 서버에서
+            // 리버스 프록시 때문에 fetch가 매번 실패하는 문제를 로그로 못 잡고 사용자 스크린샷만
+            // 보고 원인을 역추적해야 했다 — 다시 이런 일이 없도록 원인을 남긴다.
+            LOG.warn("NativeSidebarFetcher: failed to fetch native sidebar for project " + projectKey
+                    + " — falling back to approximated sidebar", e);
             return null;
         }
     }

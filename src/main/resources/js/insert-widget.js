@@ -163,7 +163,7 @@
     var IMAGE_BASE = null;
     function imageBase() {
         if (IMAGE_BASE === null) {
-            IMAGE_BASE = contextPath() + "/download/resources/co.bskim.jira.field-templates:field-templates-resources/images/";
+            IMAGE_BASE = contextPath() + "/download/resources/co.bskim.jira.field-templates:field-templates-common-resources/images/";
         }
         return IMAGE_BASE;
     }

@@ -29,27 +29,43 @@
         <description>field-templates REST resources</description>
     </rest>
 
-    <!-- add our web resources -->
-    <web-resource key="field-templates-resources" name="field-templates Web Resources">
+    <!-- 어디서나(이슈 화면 삽입 위젯 포함, atl.general) 필요한 최소 공통 리소스만 여기 둔다.
+         절대로 여기에 jira-projects-plugin CSS 의존성이나 관리 화면 전용 JS를 넣지 말 것 — 아래
+         field-templates-issue-widget-resources가 atl.general(거의 모든 Jira 화면, 대시보드 포함)에
+         이 모듈을 의존성으로 끌어오므로, 여기 있는 건 전부 사이트 전역에 로드된다. -->
+    <web-resource key="field-templates-common-resources" name="field-templates Common Resources">
         <dependency>com.atlassian.auiplugin:ajs</dependency>
-        <!-- ProjectConfigServlet이 진짜 Jira 사이드바 HTML을 서버사이드로 가져와 그대로 재사용하는데
-             (NativeSidebarFetcher), 그 마크업이 기대하는 아이콘 스프라이트/스타일이 jira-projects-
-             plugin 소속이라 우리 페이지엔 기본적으로 안 실린다 — 명시적으로 의존성 선언. -->
-        <dependency>com.atlassian.jira.jira-projects-plugin:sidebar-styles</dependency>
-        <dependency>com.atlassian.jira.jira-projects-plugin:navigation-styles</dependency>
-        <dependency>com.atlassian.jira.jira-projects-plugin:footer-styles</dependency>
-        <dependency>com.atlassian.jira.jira-projects-plugin:components-page-icons</dependency>
-        <dependency>com.atlassian.jira.jira-projects-plugin:summary-page-icons</dependency>
-        <dependency>com.atlassian.jira.jira-projects-plugin:project-shortcuts-style</dependency>
 
         <resource type="download" name="css/field-templates.css" location="/css/field-templates.css"/>
         <resource type="download" name="js/rest-client.js" location="/js/rest-client.js"/>
+        <resource type="download" name="images/" location="/images"/>
+    </web-resource>
+
+    <!-- 프로젝트 설정/개인 템플릿/전역 관리 화면 전용 리소스. 이 화면들은 PageShell이 직접
+         <script src>/<link> 태그로 다운로드 URL을 참조해서 불러오지, Jira의 context 배치 시스템을
+         타지 않는다 — 그래서 여기 있는 jira-projects-plugin 의존성은 우리 화면에만 영향을 주고
+         절대 다른 페이지(특히 대시보드)로 새어나가지 않는다.
+         (버그 #32: 이 6개 의존성이 원래 field-templates-common-resources 쪽에 있었는데, 그게
+         atl.general에 물려있는 issue-widget-resources의 의존 대상이라 전역에 로드됐고, 실제 운영
+         서버에서 jira-projects-plugin 모듈 키가 우리가 검증한 8.13.0/8.17.1과 달라서 리소스 배치가
+         깨지며 대시보드 가젯이 통째로 안 뜨는 장애로 이어짐 — 격리해서 재발 방지.) -->
+    <!-- 버그 #35: jira-projects-plugin 사이드바 CSS를 모듈 하나씩(sidebar-styles/components-page-
+         icons/summary-page-icons/...) 손으로 골라 의존성 선언하는 방식은 아이콘이 하나씩 새로 안
+         보일 때마다(Components → Summary → Board...) 계속 두더지 잡기가 됨 — 사용자가 실 서버의
+         진짜 페이지 소스를 보내줘서 확인해보니, 그 페이지는 애초에 개별 모듈이 아니라
+         `jira.project.sidebar`/`com.atlassian.jira.projects.sidebar.init`이라는 **WRM 컨텍스트**로
+         사이드바에 필요한 CSS를 통째로 묶어서 가져오고 있었음. 그래서 이제 개별 모듈을 나열하는 대신
+         ProjectConfigServlet이 이 두 네이티브 컨텍스트를 그대로 requireResourcesForContext()하도록
+         바꿈(아래 servlet 섹션 참고) — Jira가 그 사이드바 렌더링에 실제로 필요하다고 정의해둔 CSS를
+         전부 자동으로 받아오므로, 앞으로 사이드바 관련 아이콘이 또 안 보이는 문제가 원천적으로
+         재발하지 않는다. -->
+    <web-resource key="field-templates-project-config-resources" name="field-templates Project Config Resources">
+        <dependency>com.atlassian.auiplugin:ajs</dependency>
+        <dependency>co.bskim.jira.field-templates:field-templates-common-resources</dependency>
+
         <resource type="download" name="js/project-config.js" location="/js/project-config.js"/>
         <resource type="download" name="js/personal-templates.js" location="/js/personal-templates.js"/>
         <resource type="download" name="js/global-admin.js" location="/js/global-admin.js"/>
-        <resource type="download" name="images/" location="/images"/>
-
-        <context>field-templates</context>
     </web-resource>
 
     <!-- 프로젝트 관리자 설정 화면 -->
@@ -79,10 +95,14 @@
         <link linkId="field-templates-global-admin-link">/plugins/servlet/field-templates/admin</link>
     </web-item>
 
-    <!-- 이슈 화면(Create/Edit/Transition) 삽입 위젯 — atl.general 컨텍스트라 일반 Jira 화면에 자동 로드됨 -->
+    <!-- 이슈 화면(Create/Edit/Transition) 삽입 위젯 — atl.general 컨텍스트라 일반 Jira 화면(대시보드
+         포함 사실상 전부)에 자동 로드됨. 그래서 field-templates-common-resources 외에는 절대
+         의존성을 추가하지 말 것 — jira-projects-plugin 같은 다른 플러그인 모듈에 대한 의존성을 여기
+         붙이면 그 모듈 해석이 실패할 때 대시보드를 포함한 전체 페이지 리소스 배치가 깨질 수 있다
+         (버그 #32 참고). -->
     <web-resource key="field-templates-issue-widget-resources" name="field-templates Issue Widget Resources">
         <dependency>com.atlassian.auiplugin:ajs</dependency>
-        <dependency>co.bskim.jira.field-templates:field-templates-resources</dependency>
+        <dependency>co.bskim.jira.field-templates:field-templates-common-resources</dependency>
 
         <resource type="download" name="js/insert-widget.js" location="/js/insert-widget.js"/>
 

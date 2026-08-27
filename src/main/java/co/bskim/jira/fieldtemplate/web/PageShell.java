@@ -11,8 +11,10 @@ import java.io.PrintWriter;
  */
 final class PageShell {
 
-    private static final String PLUGIN_RESOURCE_BASE =
-            "/download/resources/co.bskim.jira.field-templates:field-templates-resources/";
+    private static final String COMMON_RESOURCE_BASE =
+            "/download/resources/co.bskim.jira.field-templates:field-templates-common-resources/";
+    private static final String PROJECT_CONFIG_RESOURCE_BASE =
+            "/download/resources/co.bskim.jira.field-templates:field-templates-project-config-resources/";
 
     private PageShell() {
     }
@@ -37,7 +39,7 @@ final class PageShell {
         out.println("<head>");
         out.println("<meta name=\"decorator\" content=\"" + decorator + "\">");
         out.println("<title>" + escapeHtml(title) + "</title>");
-        out.println("<link rel=\"stylesheet\" href=\"" + contextPath + PLUGIN_RESOURCE_BASE + "css/field-templates.css\">");
+        out.println("<link rel=\"stylesheet\" href=\"" + contextPath + COMMON_RESOURCE_BASE + "css/field-templates.css\">");
         out.println("</head>");
         out.println("<body>");
         if (beforeMountHtml != null) {
@@ -48,8 +50,8 @@ final class PageShell {
             out.println(afterMountHtml);
         }
         out.println("<script>" + contextScript + "</script>");
-        out.println("<script src=\"" + contextPath + PLUGIN_RESOURCE_BASE + "js/rest-client.js\"></script>");
-        out.println("<script src=\"" + contextPath + PLUGIN_RESOURCE_BASE + "js/" + jsFileName + "\"></script>");
+        out.println("<script src=\"" + contextPath + COMMON_RESOURCE_BASE + "js/rest-client.js\"></script>");
+        out.println("<script src=\"" + contextPath + PROJECT_CONFIG_RESOURCE_BASE + "js/" + jsFileName + "\"></script>");
         out.println("</body>");
         out.println("</html>");
     }

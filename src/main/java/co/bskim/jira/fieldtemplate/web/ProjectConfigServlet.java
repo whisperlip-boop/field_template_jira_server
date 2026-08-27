@@ -9,6 +9,7 @@ import com.atlassian.jira.security.PermissionManager;
 import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.plugin.spring.scanner.annotation.component.JiraComponent;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
+import com.atlassian.plugin.webresource.WebResourceManager;
 
 import javax.inject.Inject;
 import javax.servlet.ServletException;
@@ -24,14 +25,17 @@ public class ProjectConfigServlet extends HttpServlet {
     private final ProjectManager projectManager;
     private final PermissionManager permissionManager;
     private final JiraAuthenticationContext authenticationContext;
+    private final WebResourceManager webResourceManager;
 
     @Inject
     public ProjectConfigServlet(@ComponentImport ProjectManager projectManager,
                                  @ComponentImport PermissionManager permissionManager,
-                                 @ComponentImport JiraAuthenticationContext authenticationContext) {
+                                 @ComponentImport JiraAuthenticationContext authenticationContext,
+                                 @ComponentImport WebResourceManager webResourceManager) {
         this.projectManager = projectManager;
         this.permissionManager = permissionManager;
         this.authenticationContext = authenticationContext;
+        this.webResourceManager = webResourceManager;
     }
 
     @Override
@@ -48,6 +52,16 @@ public class ProjectConfigServlet extends HttpServlet {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
+
+        // 버그 #35: jira-projects-plugin 모듈을 하나씩 골라 의존성 선언하는 대신, 실제 네이티브
+        // project-config 페이지가 쓰는 것과 동일한 WRM 컨텍스트를 그대로 요청한다(사용자가 보내준
+        // 실 서버 페이지 소스에서 확인) — 이러면 Jira가 그 사이드바 렌더링에 실제로 필요하다고 정의한
+        // CSS/아이콘이 전부 자동으로 딸려온다(Board 아이콘처럼 우리가 미처 몰랐던 것까지 포함).
+        // atl.general 전역 컨텍스트에는 안 물려 있으므로(버그 #32) 이 요청 안에서만 유효 — 다른
+        // 페이지(대시보드 등)로는 여전히 전혀 안 새어나간다. js 파일들은 PageShell이 직접 <script
+        // src>로 받아오므로 이 호출과 무관하게 항상 동작한다.
+        webResourceManager.requireResourcesForContext("jira.project.sidebar");
+        webResourceManager.requireResourcesForContext("com.atlassian.jira.projects.sidebar.init");
 
         resp.setContentType("text/html;charset=UTF-8");
         String contextPath = req.getContextPath();
