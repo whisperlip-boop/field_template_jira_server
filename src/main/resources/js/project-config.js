@@ -450,6 +450,13 @@
                 el("button", {
                     class: "aui-button aui-button-primary", text: "Save",
                     onclick: function () {
+                        var incomplete = restrictions.some(function (r) {
+                            return (r.type === "USER" || r.type === "GROUP") && !r.targetKey;
+                        });
+                        if (incomplete) {
+                            window.alert("Pick a user/group from the dropdown for each Access Restriction (or remove the incomplete row).");
+                            return;
+                        }
                         saveTemplate({
                             projectKey: projectKey,
                             fieldId: state.selectedFieldId,
@@ -475,6 +482,69 @@
         return form;
     }
 
+    /**
+     * targetKey는 Jira의 내부 사용자 키(로그인명과 다를 수 있음 — matchesRestriction()이
+     * user.getKey()로 비교함)라서 관리자가 손으로 정확히 타이핑하는 건 틀리기 쉽다(실제로 사용자가
+     * 로그인명을 그대로 넣었다가 매칭이 안 되는 걸 겪음). TypeaheadResource(/typeahead/users,
+     * /typeahead/groups)는 이미 만들어져 있었는데 이 화면에 연결이 안 되어 있었던 것 — Jira의 CC
+     * 필드처럼 입력하면서 후보를 보여주고 클릭으로 정확한 key를 선택하게 한다.
+     */
+    function wireRestrictionTypeahead(input, r) {
+        var dropdown = null;
+        var debounceTimer = null;
+
+        function closeDropdown() {
+            if (dropdown && dropdown.parentNode) {
+                dropdown.parentNode.removeChild(dropdown);
+            }
+            dropdown = null;
+        }
+
+        function showResults(entries) {
+            closeDropdown();
+            if (!entries || entries.length === 0) {
+                return;
+            }
+            dropdown = el("div", {
+                class: "aui-list ft-picker-popup",
+                style: "position:absolute;z-index:3000;background:#fff;border:1px solid #ccc;border-radius:3px;" +
+                    "box-shadow:0 4px 10px rgba(0,0,0,0.15);max-height:200px;overflow-y:auto;"
+            }, entries.map(function (entry) {
+                var item = el("div", {style: "padding:6px 10px;cursor:pointer;", text: entry.label});
+                item.addEventListener("mousedown", function (e) {
+                    e.preventDefault(); // blur보다 먼저 클릭이 처리되게
+                    r.targetKey = entry.key;
+                    input.value = entry.label;
+                    closeDropdown();
+                });
+                item.addEventListener("mouseenter", function () { item.style.background = "#f4f5f7"; });
+                item.addEventListener("mouseleave", function () { item.style.background = ""; });
+                return item;
+            }));
+            document.body.appendChild(dropdown);
+            var rect = input.getBoundingClientRect();
+            dropdown.style.top = (rect.bottom + window.scrollY) + "px";
+            dropdown.style.left = (rect.left + window.scrollX) + "px";
+            dropdown.style.minWidth = rect.width + "px";
+        }
+
+        input.addEventListener("input", function () {
+            r.targetKey = ""; // 목록에서 실제로 고르기 전까지는 무효한 상태로 취급
+            clearTimeout(debounceTimer);
+            if (r.type !== "USER" && r.type !== "GROUP") {
+                return;
+            }
+            var query = input.value;
+            debounceTimer = setTimeout(function () {
+                var path = r.type === "USER" ? "/typeahead/users" : "/typeahead/groups";
+                REST.get(path + "?query=" + encodeURIComponent(query)).then(showResults).catch(function () {});
+            }, 200);
+        });
+        input.addEventListener("blur", function () {
+            setTimeout(closeDropdown, 150);
+        });
+    }
+
     function renderRestrictions(container, restrictions) {
         container.innerHTML = "";
         restrictions.forEach(function (r, idx) {
@@ -486,12 +556,19 @@
             typeSelect.addEventListener("change", function (e) {
                 r.type = e.target.value;
                 r.targetKey = "";
+                renderRestrictions(container, restrictions);
             });
-            var targetInput = el("input", {class: "text", type: "text", placeholder: "User key or group name"});
-            targetInput.value = r.targetKey || "";
-            targetInput.addEventListener("change", function (e) { r.targetKey = e.target.value; });
-            container.appendChild(el("div", {class: "ft-restriction-row"}, [
-                typeSelect, targetInput,
+            var rowChildren = [typeSelect];
+            if (r.type === "USER" || r.type === "GROUP") {
+                var targetInput = el("input", {
+                    class: "text", type: "text",
+                    placeholder: r.type === "USER" ? "Search user..." : "Search group..."
+                });
+                targetInput.value = r.targetKey || "";
+                wireRestrictionTypeahead(targetInput, r);
+                rowChildren.push(targetInput);
+            }
+            container.appendChild(el("div", {class: "ft-restriction-row"}, rowChildren.concat([
                 el("button", {
                     class: "aui-button aui-button-link", text: "Delete",
                     onclick: function (e) {
@@ -500,7 +577,7 @@
                         renderRestrictions(container, restrictions);
                     }
                 })
-            ]));
+            ])));
         });
     }
 
