@@ -289,6 +289,28 @@
             target.parentNode.appendChild(button);
             positionInline(button, target);
         }
+
+        refreshTextareaHeight(target);
+    }
+
+    /**
+     * Jira의 textarea 자동 높이 조절(jQuery 플러그인 expandOnInput)은 입력 이벤트 때 내용 높이를
+     * 다시 재서 textarea 높이를 맞추는데, 다이얼로그가 아직 화면에 그려지기 전(숨김 상태)에 초기
+     * 계산이 이뤄지면 높이를 잘못 잡아서 내용이 잘려 보인다 — 사용자가 Edit Issue에서 Description에
+     * 내용이 일부만 나오고, 커서를 넣고 키를 한 번 눌러야 그제서야 제대로 펼쳐지는 걸 확인.
+     *
+     * Jira 자체 코드도 똑같은 문제 때문에 필드를 보여주는 시점에 이 이벤트를 직접 쏘고 있다
+     * (jira-quick-edit-plugin의 js/form/field/configurable.js `activate()`:
+     *  `this.$element.find("textarea").trigger("refreshInputHeight");
+     *   // So textarea expand to correct height. See expandOnInput.`).
+     * 우리도 버튼을 붙인 시점(=그 필드가 DOM에 확실히 있고 화면에 그려진 뒤)에 같은 이벤트를 쏴서
+     * 높이를 다시 잡게 한다. 우리가 직접 높이를 계산하지 않고 Jira 자체 메커니즘을 그대로 쓰는
+     * 방식이라, Jira 버전에 따라 계산식이 달라져도 항상 그 버전이 의도한 결과가 나온다.
+     */
+    function refreshTextareaHeight(target) {
+        if (target.tagName === "TEXTAREA" && window.AJS && AJS.$) {
+            AJS.$(target).trigger("refreshInputHeight");
+        }
     }
 
     function buildInsertQuery(field, ctx, screenType) {
