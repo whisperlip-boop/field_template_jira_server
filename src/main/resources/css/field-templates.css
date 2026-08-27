@@ -1,0 +1,139 @@
+.ft-app {
+    max-width: 900px;
+    margin: 20px 0;
+}
+
+.ft-app .field-group {
+    margin-bottom: 12px;
+}
+
+.ft-app .field-group > label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.ft-app .ft-inline-check {
+    display: inline-block;
+    font-weight: normal;
+    margin-right: 12px;
+}
+
+.ft-app .ft-restriction-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.ft-app .ft-edit-form {
+    border: 1px solid #dfe1e6;
+    border-radius: 3px;
+    padding: 16px;
+    margin-top: 16px;
+    background: #fafbfc;
+}
+
+.ft-app table.aui {
+    margin-top: 12px;
+}
+
+/* AUI 기본 .textarea/.text 폭이 좁아서(약 ~260px) 템플릿 본문 입력이 너무 답답함 — 폼 너비만큼 넓힘 */
+.ft-app .ft-edit-form textarea.textarea {
+    width: 100%;
+    max-width: 700px;
+    box-sizing: border-box;
+}
+
+.ft-app .ft-edit-form input.text {
+    width: 100%;
+    max-width: 500px;
+    box-sizing: border-box;
+}
+
+.ft-color-picker {
+    line-height: 0;
+}
+
+/* 이슈 화면(Create/Edit/Transition)에 주입되는 템플릿 삽입 아이콘 버튼 — insert-widget.js */
+.ft-insert-button {
+    padding: 2px 4px;
+    line-height: 0;
+    vertical-align: middle;
+}
+
+.ft-insert-button img {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+/* top/height/left는 전부 JS(alignToToolbarSibling)가 실측 좌표로 채움 — CSS 고정값은 컨테이너의
+   실제 기준점이 겉보기와 달라서(.wiki-edit-toolbar가 position:sticky) 매번 어긋났다(실기로 확인). */
+.ft-insert-button-toolbar {
+    position: absolute;
+    box-sizing: border-box;
+}
+
+/* ProjectConfigServlet이 그리는 좌측 사이드바 — 사용자가 실제 다른 Project settings 탭에서 떠준
+   진짜 .aui-sidebar 마크업(aui-sidebar-wrapper/aui-sidebar-body/aui-sidebar-footer/
+   aui-avatar-large/aui-icon-large 등)을 그대로 재사용하므로, Jira 전역 CSS가 이미 크기·색상·
+   호버 스타일을 다 처리해준다. 여기서는 뷰포트 높이를 못 주는 부분(원본은 JS가 인라인으로
+   height를 계산해서 넣어줌)과 우리가 자체 구현한 접기/펴기 상태만 보정한다. */
+.ft-project-shell {
+    display: flex;
+    align-items: flex-start;
+}
+
+#ft-back-panel {
+    /* 폭 제약을 안 줬더니 flex 아이템이 content 기준 auto 폭으로 넓어져 화면 절반 가까이 차지하는
+       회귀가 있었음(실기로 확인) — 실제 aui-sidebar 폭을 getComputedStyle로 확인해 정확히 반영 */
+    flex: 0 0 280px;
+    width: 280px;
+    box-sizing: border-box;
+}
+
+/* 원본 .aui-sidebar-wrapper는 JS가 인라인으로 height를 채워줘서 내부 flex(body가 flex:1로 늘어나고
+   footer가 하단에 붙는 구조)가 성립하는데, 그 JS가 없는 우리 페이지에선 wrapper의 height 자체가
+   CSS로 정의돼 있지 않아(실측: computed height는 JS가 준 인라인 값일 뿐) auto로 남아 footer가
+   하단에 안 붙었다(실기로 확인) — wrapper에 직접 height를 줘서 원본 JS가 하던 역할을 대신한다. */
+#ft-back-panel .aui-sidebar-wrapper {
+    height: calc(100vh - 100px);
+}
+
+/* Issues/Reports/Releases 아이콘은 진짜 마크업을 그대로 쓰기 시작한 시점(별도 CSS 없이)부터 이미
+   정상적으로 나오고 있었음 — 그런데 그 뒤 "Components만 자리가 안 잡힌다"를 고치려고 넣은 규칙을
+   `.aui-icon.aui-icon-large` 전체에 걸어서(20px 강제, 그다음엔 overflow:hidden까지) 오히려 원래
+   잘 나오던 아이콘들까지 잘리는 등 상태가 더 나빠졌다(사용자가 실기로 확인) — 전체 대상 규칙을
+   빼고, 문제가 있는 Components 하나(`icon-sidebar-components`, 스프라이트 전용이라 자리를 아예
+   못 잡음)에만 최소한으로 적용한다. */
+#ft-back-panel .icon-sidebar-components {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    margin-right: 4px;
+}
+
+/* 프로젝트명 링크가 기본 파란 링크색으로 보였음 — 실제 화면처럼 짙은 텍스트색으로 */
+#ft-back-panel .project-title a {
+    color: #172b4d;
+    text-decoration: none;
+}
+
+.ft-project-main-column {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 20px 20px 20px 24px;
+}
+
+/* 접힌 상태 — 텍스트 라벨은 숨기고 아이콘/아바타만 남긴 좁은 폭으로 축소(Jira 실제 접기 JS가
+   없으므로 우리가 직접 정의한 최소 구현) */
+#ft-back-panel.ft-collapsed {
+    width: 52px;
+}
+
+#ft-back-panel.ft-collapsed .aui-nav-item-label,
+#ft-back-panel.ft-collapsed .project-title,
+#ft-back-panel.ft-collapsed .aui-button-label {
+    display: none;
+}

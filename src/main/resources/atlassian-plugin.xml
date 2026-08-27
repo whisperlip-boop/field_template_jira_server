@@ -1,0 +1,102 @@
+<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}" plugins-version="2">
+    <plugin-info>
+        <description>${project.description}</description>
+        <version>${project.version}</version>
+        <vendor name="${project.organization.name}" url="${project.organization.url}" />
+        <param name="plugin-icon">images/pluginIcon.png</param>
+        <param name="plugin-logo">images/pluginLogo.png</param>
+    </plugin-info>
+
+    <!-- add our i18n resource -->
+    <resource type="i18n" name="i18n" location="field-templates"/>
+
+    <!-- Active Objects: 여기서 등록한 엔티티만 AO가 테이블을 만들어 관리한다 -->
+    <ao key="ao-module">
+        <description>field-templates AO entities</description>
+        <entity>co.bskim.jira.fieldtemplate.model.Template</entity>
+        <entity>co.bskim.jira.fieldtemplate.model.TemplateGroup</entity>
+        <entity>co.bskim.jira.fieldtemplate.model.TemplateIssueType</entity>
+        <entity>co.bskim.jira.fieldtemplate.model.TemplateRole</entity>
+        <entity>co.bskim.jira.fieldtemplate.model.TemplateRestriction</entity>
+        <entity>co.bskim.jira.fieldtemplate.model.TemplateUsageStat</entity>
+        <entity>co.bskim.jira.fieldtemplate.model.PersonalTemplate</entity>
+        <entity>co.bskim.jira.fieldtemplate.model.PersonalTemplateIssueType</entity>
+        <entity>co.bskim.jira.fieldtemplate.model.PersonalTemplateProject</entity>
+    </ao>
+
+    <!-- REST API: /rest/field-templates/1.0/... -->
+    <rest key="field-templates-rest" path="/field-templates" version="1.0">
+        <description>field-templates REST resources</description>
+    </rest>
+
+    <!-- add our web resources -->
+    <web-resource key="field-templates-resources" name="field-templates Web Resources">
+        <dependency>com.atlassian.auiplugin:ajs</dependency>
+        <!-- ProjectConfigServlet이 진짜 Jira 사이드바 HTML을 서버사이드로 가져와 그대로 재사용하는데
+             (NativeSidebarFetcher), 그 마크업이 기대하는 아이콘 스프라이트/스타일이 jira-projects-
+             plugin 소속이라 우리 페이지엔 기본적으로 안 실린다 — 명시적으로 의존성 선언. -->
+        <dependency>com.atlassian.jira.jira-projects-plugin:sidebar-styles</dependency>
+        <dependency>com.atlassian.jira.jira-projects-plugin:navigation-styles</dependency>
+        <dependency>com.atlassian.jira.jira-projects-plugin:footer-styles</dependency>
+        <dependency>com.atlassian.jira.jira-projects-plugin:components-page-icons</dependency>
+        <dependency>com.atlassian.jira.jira-projects-plugin:summary-page-icons</dependency>
+        <dependency>com.atlassian.jira.jira-projects-plugin:project-shortcuts-style</dependency>
+
+        <resource type="download" name="css/field-templates.css" location="/css/field-templates.css"/>
+        <resource type="download" name="js/rest-client.js" location="/js/rest-client.js"/>
+        <resource type="download" name="js/project-config.js" location="/js/project-config.js"/>
+        <resource type="download" name="js/personal-templates.js" location="/js/personal-templates.js"/>
+        <resource type="download" name="js/global-admin.js" location="/js/global-admin.js"/>
+        <resource type="download" name="images/" location="/images"/>
+
+        <context>field-templates</context>
+    </web-resource>
+
+    <!-- 프로젝트 관리자 설정 화면 -->
+    <servlet key="project-config-servlet" name="Field Templates Project Config Servlet"
+             class="co.bskim.jira.fieldtemplate.web.ProjectConfigServlet">
+        <url-pattern>/field-templates/project-config</url-pattern>
+    </servlet>
+    <!-- atl.jira.proj.config 사이드바는 서브섹션이 "summary"가 아니라 projectgroup1~4로 고정되어 있음
+         (jira-project-config-plugin의 atlassian-plugin.xml에서 확인). 기존 그룹에 끼워넣지 않고
+         우리 전용 그룹을 새로 선언해 사이드바 맨 아래에 별도 구획으로 노출한다. -->
+    <web-section key="field-templates-group" location="atl.jira.proj.config" name="Field Templates" weight="50"/>
+    <web-item key="field-templates-project-config-item" name="Field Templates" section="atl.jira.proj.config/field-templates-group" weight="10">
+        <label>Field Templates</label>
+        <link linkId="field-templates-project-config-link">/plugins/servlet/field-templates/project-config?projectKey=$project.key</link>
+        <condition class="com.atlassian.jira.plugin.webfragment.conditions.UserIsProjectAdminCondition"/>
+    </web-item>
+
+    <!-- 전역 관리자 화면 -->
+    <servlet key="global-admin-servlet" name="Field Templates Global Admin Servlet"
+             class="co.bskim.jira.fieldtemplate.web.GlobalAdminServlet">
+        <url-pattern>/field-templates/admin</url-pattern>
+    </servlet>
+    <!-- admin_plugins_menu도 위와 동일한 이유(서브섹션 필요)로 전용 그룹을 새로 선언 -->
+    <web-section key="field-templates-admin-group" location="admin_plugins_menu" name="Field Templates" weight="50"/>
+    <web-item key="field-templates-global-admin-item" name="Field Templates" section="admin_plugins_menu/field-templates-admin-group" weight="10">
+        <label>Field Templates</label>
+        <link linkId="field-templates-global-admin-link">/plugins/servlet/field-templates/admin</link>
+    </web-item>
+
+    <!-- 이슈 화면(Create/Edit/Transition) 삽입 위젯 — atl.general 컨텍스트라 일반 Jira 화면에 자동 로드됨 -->
+    <web-resource key="field-templates-issue-widget-resources" name="field-templates Issue Widget Resources">
+        <dependency>com.atlassian.auiplugin:ajs</dependency>
+        <dependency>co.bskim.jira.field-templates:field-templates-resources</dependency>
+
+        <resource type="download" name="js/insert-widget.js" location="/js/insert-widget.js"/>
+
+        <context>atl.general</context>
+    </web-resource>
+
+    <!-- 개인 템플릿 설정 화면 -->
+    <servlet key="personal-templates-servlet" name="Field Templates Personal Templates Servlet"
+             class="co.bskim.jira.fieldtemplate.web.PersonalTemplatesServlet">
+        <url-pattern>/field-templates/personal-templates</url-pattern>
+    </servlet>
+    <web-item key="field-templates-personal-templates-item" name="Field Templates" section="system.user.options/personal" weight="100">
+        <label>My Templates</label>
+        <link linkId="field-templates-personal-templates-link">/plugins/servlet/field-templates/personal-templates</link>
+    </web-item>
+
+</atlassian-plugin>

@@ -1,0 +1,15 @@
+target/
+*.class
+*.log
+
+# IDE / editor
+.vscode/
+.idea/
+*.iml
+
+# Claude Code session-local state
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
