@@ -10,7 +10,6 @@
         fields: [],
         selectedFieldId: null,
         templates: [],
-        groups: [],
         stats: [],
         editing: null, // Template object being edited, or {isNew:true} for a new one
         copyOpen: false,
@@ -76,12 +75,10 @@
             el("p", {text: "Loading..."})
         ]));
 
-        Promise.all([
-            REST.get("/config"),
-            REST.get("/groups/project/" + encodeURIComponent(projectKey))
-        ]).then(function (results) {
-            state.config = results[0];
-            state.groups = results[1];
+        // projectKey를 넘기면 이 프로젝트가 실제로 쓰는 이슈타입만 내려온다(전체 인스턴스 이슈타입이
+        // 다 나오면 Issue Types 체크박스가 너무 길어져서 고르기 어렵다는 지적 반영).
+        REST.get("/config?projectKey=" + encodeURIComponent(projectKey)).then(function (config) {
+            state.config = config;
             return loadFieldsAcrossIssueTypes();
         }).then(function () {
             if (!state.selectedFieldId && state.fields.length > 0) {
@@ -395,14 +392,6 @@
 
         var colorPickerEl = colorPicker(state.config.colors || ["#DEEBFF"], t.color);
 
-        var groupSelect = el("select", {class: "select"}, [el("option", {value: "", text: "(none)"})].concat(
-            state.groups.map(function (g) {
-                var opt = el("option", {value: String(g.id), text: g.name});
-                if (t.groupId === g.id) opt.selected = true;
-                return opt;
-            })
-        ));
-
         var screenTypeBoxes = ["CREATE", "EDIT", "TRANSITION"].map(function (st) {
             var cb = el("input", {type: "checkbox", value: st});
             cb.checked = (t.screenTypes || []).indexOf(st) >= 0;
@@ -430,7 +419,6 @@
             field("Title", titleInput),
             field("Color", colorPickerEl),
             field("Text", textArea),
-            field("Group", groupSelect),
             el("div", {class: "field-group"}, [el("label", {text: "Visible"}), visibleCheckbox]),
             el("div", {class: "field-group"}, [el("label", {text: "Use as Default"}), defaultCheckbox]),
             el("div", {class: "field-group"}, [el("label", {text: "Screen Types (all if empty)"})].concat(screenTypeBoxes)),
@@ -465,7 +453,11 @@
                             text: textArea.value,
                             visible: visibleCheckbox.checked,
                             isDefault: defaultCheckbox.checked,
-                            groupId: groupSelect.value ? Number(groupSelect.value) : null,
+                            // Group 선택 UI는 제거했지만(그룹을 만드는 화면이 없어서 항상 "(none)"
+                            // 뿐이었음), 모델/REST/삽입 팝업의 그룹 표시 로직은 그대로 남겨둠 —
+                            // 프로젝트간 복사 등으로 그룹이 붙은 템플릿을 편집할 때 값이 지워지지
+                            // 않도록 기존 값을 그대로 돌려보낸다.
+                            groupId: t.groupId != null ? t.groupId : null,
                             screenTypes: checkedValues(screenTypeBoxes),
                             issueTypeIds: checkedValues(issueTypeBoxes),
                             roleIds: checkedValues(roleBoxes).map(Number),
