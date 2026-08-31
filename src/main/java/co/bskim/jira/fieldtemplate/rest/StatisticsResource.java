@@ -26,9 +26,9 @@ public class StatisticsResource {
     }
 
     @GET
-    @Path("/field/{fieldId}")
-    public Response topByField(@PathParam("fieldId") String fieldId, @QueryParam("limit") Integer limit) {
-        List<TemplateUsageStat> stats = statisticsService.findTopByField(fieldId, limit == null ? 10 : limit);
+    @Path("/project/{projectKey}/field/{fieldId}")
+    public Response topByField(@PathParam("projectKey") String projectKey, @PathParam("fieldId") String fieldId, @QueryParam("limit") Integer limit) {
+        List<TemplateUsageStat> stats = statisticsService.findTopByField(projectKey, fieldId, limit == null ? 10 : limit);
         List<Entry> entries = stats.stream()
                 .map(s -> new Entry(s.getTemplate().getID(), s.getTemplate().getTitle(), s.getFieldId(), s.getCount()))
                 .collect(Collectors.toList());

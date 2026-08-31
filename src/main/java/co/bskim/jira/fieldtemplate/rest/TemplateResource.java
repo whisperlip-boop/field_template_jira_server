@@ -7,12 +7,14 @@ import co.bskim.jira.fieldtemplate.model.TemplateRole;
 import co.bskim.jira.fieldtemplate.rest.dto.RestrictionDto;
 import co.bskim.jira.fieldtemplate.rest.dto.TemplateDto;
 import co.bskim.jira.fieldtemplate.service.TemplateService;
+import co.bskim.jira.fieldtemplate.util.RestrictionType;
 import com.atlassian.jira.permission.ProjectPermissions;
 import com.atlassian.jira.project.Project;
 import com.atlassian.jira.project.ProjectManager;
 import com.atlassian.jira.security.JiraAuthenticationContext;
 import com.atlassian.jira.security.PermissionManager;
 import com.atlassian.jira.user.ApplicationUser;
+import com.atlassian.jira.user.util.UserManager;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 
 import javax.inject.Inject;
@@ -40,16 +42,19 @@ public class TemplateResource {
     private final ProjectManager projectManager;
     private final PermissionManager permissionManager;
     private final JiraAuthenticationContext authenticationContext;
+    private final UserManager userManager;
 
     @Inject
     public TemplateResource(TemplateService templateService,
                              @ComponentImport ProjectManager projectManager,
                              @ComponentImport PermissionManager permissionManager,
-                             @ComponentImport JiraAuthenticationContext authenticationContext) {
+                             @ComponentImport JiraAuthenticationContext authenticationContext,
+                             @ComponentImport UserManager userManager) {
         this.templateService = templateService;
         this.projectManager = projectManager;
         this.permissionManager = permissionManager;
         this.authenticationContext = authenticationContext;
+        this.userManager = userManager;
     }
 
     @GET
@@ -181,8 +186,21 @@ public class TemplateResource {
         dto.roleIds = Arrays.stream(template.getRoles())
                 .map(TemplateRole::getRoleId).collect(Collectors.toSet());
         dto.restrictions = Arrays.stream(template.getRestrictions())
-                .map(r -> new RestrictionDto(r.getType(), r.getTargetKey())).collect(Collectors.toList());
+                .map(r -> new RestrictionDto(r.getType(), r.getTargetKey(), resolveTargetLabel(r.getType(), r.getTargetKey())))
+                .collect(Collectors.toList());
         return dto;
+    }
+
+    /** USER 제한은 targetKey가 Jira 내부 사용자 키라서 화면에 그대로 보여주면 알아볼 수 없다 — 표시 이름으로 바꿔준다. */
+    private String resolveTargetLabel(RestrictionType type, String targetKey) {
+        if (type != RestrictionType.USER || targetKey == null) {
+            return null;
+        }
+        ApplicationUser user = userManager.getUserByKey(targetKey);
+        if (user == null) {
+            return null;
+        }
+        return user.getDisplayName() + " (" + user.getUsername() + ")";
     }
 
     private TemplateService.TemplateInput toInput(TemplateDto dto) {

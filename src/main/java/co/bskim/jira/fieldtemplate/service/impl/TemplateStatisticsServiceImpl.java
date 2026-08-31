@@ -52,9 +52,18 @@ public class TemplateStatisticsServiceImpl implements TemplateStatisticsService 
     }
 
     @Override
-    public List<TemplateUsageStat> findTopByField(String fieldId, int limit) {
+    public List<TemplateUsageStat> findTopByField(String projectKey, String fieldId, int limit) {
+        // FIELD_ID만으로는 여러 프로젝트가 같은 커스텀 필드를 공유할 때 타 프로젝트 템플릿까지 섞여
+        // 나온다 — 먼저 이 프로젝트+필드에 속한 Template ID로 좁힌 뒤 그 안에서만 집계한다.
+        Template[] templates = ao.find(Template.class, Query.select("ID")
+                .where("PROJECT_KEY = ? AND FIELD_ID = ?", projectKey, fieldId));
+        if (templates.length == 0) {
+            return new ArrayList<>();
+        }
+        Object[] templateIds = Arrays.stream(templates).map(Template::getID).toArray();
+        String placeholders = String.join(",", java.util.Collections.nCopies(templateIds.length, "?"));
         TemplateUsageStat[] stats = ao.find(TemplateUsageStat.class, Query.select()
-                .where("FIELD_ID = ?", fieldId)
+                .where("TEMPLATE_ID IN (" + placeholders + ")", templateIds)
                 .order("COUNT DESC")
                 .limit(limit));
         return new ArrayList<>(Arrays.asList(stats));

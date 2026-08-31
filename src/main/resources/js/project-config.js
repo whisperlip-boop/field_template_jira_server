@@ -129,7 +129,7 @@
         }
         return Promise.all([
             REST.get("/templates/project/" + encodeURIComponent(projectKey) + "/field/" + encodeURIComponent(state.selectedFieldId)),
-            REST.get("/statistics/field/" + encodeURIComponent(state.selectedFieldId) + "?limit=5")
+            REST.get("/statistics/project/" + encodeURIComponent(projectKey) + "/field/" + encodeURIComponent(state.selectedFieldId) + "?limit=5")
         ]).then(function (results) {
             state.templates = results[0];
             state.stats = results[1];
@@ -506,6 +506,7 @@
                 item.addEventListener("mousedown", function (e) {
                     e.preventDefault(); // blur보다 먼저 클릭이 처리되게
                     r.targetKey = entry.key;
+                    r.targetLabel = entry.label;
                     input.value = entry.label;
                     closeDropdown();
                 });
@@ -522,6 +523,7 @@
 
         input.addEventListener("input", function () {
             r.targetKey = ""; // 목록에서 실제로 고르기 전까지는 무효한 상태로 취급
+            r.targetLabel = "";
             clearTimeout(debounceTimer);
             if (r.type !== "USER" && r.type !== "GROUP") {
                 return;
@@ -548,6 +550,7 @@
             typeSelect.addEventListener("change", function (e) {
                 r.type = e.target.value;
                 r.targetKey = "";
+                r.targetLabel = "";
                 renderRestrictions(container, restrictions);
             });
             var rowChildren = [typeSelect];
@@ -556,7 +559,7 @@
                     class: "text", type: "text",
                     placeholder: r.type === "USER" ? "Search user..." : "Search group..."
                 });
-                targetInput.value = r.targetKey || "";
+                targetInput.value = r.targetLabel || r.targetKey || "";
                 wireRestrictionTypeahead(targetInput, r);
                 rowChildren.push(targetInput);
             }
