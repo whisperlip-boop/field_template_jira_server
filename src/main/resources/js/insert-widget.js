@@ -21,6 +21,20 @@
     var EDIT_SELECTORS = ["#issue-edit", "#edit-issue-dialog"];
     var TRANSITION_SELECTORS = ["#issue-workflow-transition"];
 
+    /**
+     * 삽입 버튼을 아예 주입하지 않을 프로젝트 키 목록.
+     *
+     * ITSD 프로젝트의 Create Issue 화면은 폼이 크게 커스터마이징돼 있어서(탭 분할, 필드마다 붙는 HTML
+     * description 블록 등) 버튼 위치 계산의 기준 좌표계가 표준 화면과 달라진다 — Summary 버튼이 입력창
+     * 우측이 아니라 폼 좌상단에, Description 버튼이 툴바가 아니라 다이얼로그 우하단에 붙는 걸 실서버에서
+     * 확인. 이 화면 하나 때문에 다른 프로젝트에서 이미 잘 맞아 있는 위치 계산(alignToToolbarSibling /
+     * positionInline)을 흔드는 위험을 지는 대신, 해당 프로젝트에서만 기능을 끈다.
+     *
+     * 주의: 버튼뿐 아니라 "Use as Default" 자동 채움도 같이 꺼진다(둘 다 /fields 응답을 타고 들어옴).
+     * 나중에 위치 문제를 근본적으로 고치면 이 목록만 비우면 원복된다.
+     */
+    var DISABLED_PROJECT_KEYS = ["ITSD"];
+
     var wiredContainers = new WeakSet();
 
     function contextPath() {
@@ -93,6 +107,11 @@
                 return;
             }
             attachChangeListeners(container, screenType);
+            // 프로젝트 select를 비활성 프로젝트로 바꾼 경우까지 커버하려면 리스너를 붙인 뒤에 걸러야 한다.
+            if (isDisabledProject(ctx.projectKey)) {
+                removeInjectedButtons(container);
+                return;
+            }
             return REST.get("/fields?projectKey=" + encodeURIComponent(ctx.projectKey) +
                 "&issueTypeId=" + encodeURIComponent(ctx.issueTypeId)).then(function (fields) {
                 (fields || []).forEach(function (field) {
@@ -102,6 +121,28 @@
         }).catch(function (err) {
             if (window.console) console.warn("[field-templates] widget setup failed:", err);
         });
+    }
+
+    function isDisabledProject(projectKey) {
+        return DISABLED_PROJECT_KEYS.indexOf(String(projectKey).toUpperCase()) !== -1;
+    }
+
+    /**
+     * 다이얼로그를 연 채로 프로젝트를 비활성 프로젝트로 바꾼 경우에 대비해, 앞서 붙여둔 버튼과 주입
+     * 표시를 걷어낸다. Jira가 프로젝트 변경 시 폼을 통째로 다시 그리면 어차피 같이 사라지지만, 폼
+     * DOM을 재사용하는 경로가 있어도 버튼이 남지 않도록 한다.
+     */
+    function removeInjectedButtons(container) {
+        var buttons = container.querySelectorAll(".ft-insert-button");
+        for (var i = 0; i < buttons.length; i++) {
+            if (buttons[i].parentNode) {
+                buttons[i].parentNode.removeChild(buttons[i]);
+            }
+        }
+        var injected = container.querySelectorAll("[data-ft-injected]");
+        for (var j = 0; j < injected.length; j++) {
+            injected[j].removeAttribute("data-ft-injected");
+        }
     }
 
     /** CREATE 화면에서 프로젝트/이슈타입을 바꾸면 그에 맞는 필드 목록으로 다시 계산해야 한다. */

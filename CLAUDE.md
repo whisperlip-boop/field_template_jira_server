@@ -39,7 +39,7 @@
 |---|---|
 | groupId | `co.bskim.jira` |
 | artifactId | `field-templates` |
-| version | `1.0.2` |
+| version | `1.0.3` |
 | base package | `co.bskim.jira.fieldtemplate` |
 | REST path | `/rest/field-templates/1.0` |
 
